@@ -1,0 +1,69 @@
+# deployment file
+# add deployment and service in same file, because every deployment needs a service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-deployment
+  labels:
+    app: webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  # blueprint of the pod- configuration of pod is in template section
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      # list of containers in a pod, better to keep only one container per pod
+      containers:
+      - name: webapp
+        image: nanajanashia/k8s-demo-app:v1.0
+        ports:
+        # this is containerPort / pod port
+        - containerPort: 3000
+        env:
+        - name: USER_NAME
+          # to pick value from mongo-secret.yaml use secretKeyRef and valueFrom instead of value
+          valueFrom: 
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo-user
+        - name: USER_PWD
+          # to pick value from mongo-secret.yaml use secretKeyRef and valueFrom instead of value
+          valueFrom: 
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo-password
+        - name: DB_URL
+          # to pick value from mongo-config.yaml use configMapKeyRef and valueFrom instead of value
+          valueFrom:
+            configMapKeyRef:
+              name: mongo-config
+              key: mongo-url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+spec:
+  # if type: NodePort not defined, kubernetes will by default take type ClusterIP
+  # ClusterIP is an internal service
+  # NodePort is an external service, which can be used to expose the app and make it accessible to external word
+  type: NodePort
+  selector:
+    app: webapp
+  ports:
+    - protocol: TCP
+      # servicePort below - outside request comes on this port, in below case is 3000 (can keep 8080 also)
+      # recommended is to keep same port as app server port which is inside container 
+      # from webapp external service port 3000 -> webapp internal service port 3000 -> pod port 3000
+      port: 3000
+      # targetPort should be same as containerPort so that it can forward the request to container
+      targetPort: 3000
+      # nodePort is port from which external world can access this application
+      # external world can access this app using nodeip:nodeport
+      # nodePort range should be between 30000 to 32767
+      nodePort: 30100

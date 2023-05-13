@@ -1,0 +1,55 @@
+# deployment file
+# add deployment and service in same file, because every deployment needs a service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  labels:
+    app: mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  # blueprint of the pod- configuration of pod is in template section
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      # list of containers in a pod, better to keep only one container per pod
+      containers:
+      - name: mongodb
+        image: mongo:6.0.2
+        ports:
+        # this is containerPort / pod port
+        - containerPort: 27017
+        env: 
+        - name: MONGO_INITDB_ROOT_USERNAME
+          # to pick value from secret.yaml use valueFrom instead of value
+          valueFrom: 
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo-user
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          # to pick value from secret.yaml use valueFrom instead of value
+          valueFrom: 
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+spec:
+  selector:
+    app: mongo
+  ports:
+    - protocol: TCP
+      # servicePort below - outside request comes on this port, in below case is 27017 (can keep 8080 also)
+      # recommended is to keep same port as app server port which is inside container 
+      # from mongo external service port 27017 -> mongo internal service port 27017 -> pod port 27017
+      port: 27017
+      # targetPort should be same as containerPort so that it can forward the request to container
+      targetPort: 27017
